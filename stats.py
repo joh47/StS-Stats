@@ -128,8 +128,8 @@ def processRun(file):
     with open(file) as f:
     	data = json.load(f)
     floor = data['floor_reached']
-    hp = data['current_hp_per_floor'][-1]
-    return floor == 57 and hp != 0
+    isVictory = data['victory']
+    return floor == 57 and isVictory
 
 
 def getRunNames(runPath, charIdx):
