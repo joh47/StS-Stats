@@ -16,16 +16,16 @@ def main():
     print('Welcome to SpireStats')
     print('Leave this window open in the background and stats will be updated')
     #get the config file data
-    path, fileOutput, historySize, tick, rotB, charCount, charNames = readConfig()
+    path, fileOutput, historySize, tick, rotB, charCount, charNames, trackCustomRuns = readConfig()
     if fileOutput:
         print('\tYour stats will appear in streaks.txt and winrates.txt')
 
-    initRunData(charCount, path, charNames, historySize)
+    initRunData(charCount, path, charNames, historySize, trackCustomRuns)
     readStreakData(charCount)
 
     #update loop
     while True:
-        checkUpdate(charCount, path, charNames, historySize)
+        checkUpdate(charCount, path, charNames, historySize, trackCustomRuns)
         winrates = calcWinrates(historySize, charCount, rotB)
         outToFile('streaks.txt', streakData, charCount, winrates)
         if fileOutput:
@@ -85,20 +85,33 @@ def getWinrate(list):
     total = len(list)
     return format(wins/total * 100, '.1f') + '%'
 
+def isValidRun(file, trackCustomRuns):
+    with open(file) as f:
+        data = json.load(f)
+    isCustom = data['is_trial']
+    # if it is a custom run and you are not tracking them, do not process the run
+    if isCustom and not trackCustomRuns:
+        if DEBUG:
+            print("Run is Custom and TrackCustomRuns is Set to False")
+        return False
+    else:
+        return True
 
-def initRunData(charCount, path, charNames, historySize):
+
+def initRunData(charCount, path, charNames, historySize, trackCustomRuns):
     for i in range(charCount):
         update, runs = getRunNames(os.path.join(path, charNames[i]), i)
         latestRuns.append(runs[-1])
         for filename in runs[-historySize:]:
-            resultData[i].append(processRun(filename))
+            if isValidRun(filename, trackCustomRuns):
+                resultData[i].append(processRun(filename))
 
 
-def checkUpdate(charCount, path, charNames, historySize):
+def checkUpdate(charCount, path, charNames, historySize, trackCustomRuns):
     detected = False
     for i in range(charCount):
         update, runs = getRunNames(os.path.join(path, charNames[i]), i)
-        if update and runs[-1] != latestRuns[i]:
+        if update and runs[-1] != latestRuns[i] and isValidRun(runs[-1],trackCustomRuns):
             detected = True
             if DEBUG:
                 print('New Run Detected')
@@ -166,8 +179,12 @@ def readConfig():
     charCount = int(config['OTHER']['charCount'])
     names = config['OTHER']['charNames']
     charNames = names.split('|')
-
-    return path, fileOutput, historySize, tick, rotB, charCount, charNames
+    trackCustomRuns = config['OTHER']['trackCustomRuns']
+    if trackCustomRuns == 'True':
+        trackCustomRuns = bool(True)
+    else:
+        trackCustomRuns = bool(False)
+    return path, fileOutput, historySize, tick, rotB, charCount, charNames, trackCustomRuns
 
 
 if __name__ == "__main__":
